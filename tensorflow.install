@@ -1,0 +1,5 @@
+When using anaconda, you need to install those packages to the corresconding python version.
+
+install packages to anaconda python
+
+conda install tensorflow
