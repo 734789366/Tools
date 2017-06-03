@@ -12,6 +12,7 @@ loadtxt()读取了一个包含股价数据的CSV文件，用delimiter参数指�
 
 import numpy as np
 import datetime
+import matplotlib.pyplot as plt
 
 c, v = np.loadtxt('../Code/ch3code/data.csv', delimiter=',', usecols=(6, 7), unpack=True)
 
@@ -128,3 +129,157 @@ def summaries(indice, o, h, l, c):
 print('week_indice', week_indice)
 week_summary = np.apply_along_axis(summaries, 1, week_indice, open, high, low, close)
 print(week_summary)
+
+# 真实波动幅度均值ATR是一个用来衡量股价波动性的技术指标
+# ATR是基于N个交易日的最高价和最低价进行计算的，通常取最近20个交易日
+# 对于每一个交易日，计算以下各项：
+# h -l : 当日股价范围
+# h - pre_close : 当日最高价和前一日收盘价之差
+# pre_close - l : 前一日收盘价和当日最低价之差
+# 真实波动幅度就是这三者的最大值
+# maximum()函数比较多个数组的元素，返回对应位置上的最大值
+date, open, high, low, close = np.loadtxt('../Code/ch3code/data.csv', delimiter=',', usecols=(1, 3, 4, 5, 6), converters={1: datestr2num}, unpack=True)
+N = 20
+h = high[-N:]
+l = low[-N:]
+pre_close = close[-N-1:-1]
+true_range = np.maximum(h-l, h-pre_close, pre_close-l)
+print(true_range)
+
+atr = np.zeros(N)
+atr[0] = np.mean(true_range)
+for i in range(1, N):
+    atr[i] = ((N-1)*atr[i-1]+true_range[i])
+    atr[i] /= N
+#atr /= N
+np.set_printoptions(suppress=True)
+print('atr:', atr)
+
+# 简单移动平均线SMA通常用于分析时间序列上的数据。
+# 为了计算它，我们需要定义一个N个周期的移动窗口，按照时间序列滑动这个窗口，
+# 并计算窗口内的数据的均值。
+# 通过Numpy的convolve卷积函数是个很好的选择
+# 经过convolve的数据的大小为origin-N+1
+N = 5
+weights = np.ones(N)/N
+sma = np.convolve(weights, close)[N-1:-N+1]
+t = np.arange(N-1, len(close))
+plt.plot(t, close[N-1:], 'r-')
+plt.plot(t, sma, 'g-')
+plt.show()
+
+# 指数移动平均线EMA也是一种流行的技术指标，
+# 指数移动平均线使用的权重是指数衰减的，
+# 对历史上的数据点赋予的权重以指数速度减小
+# 使用exp()和linspace()方法
+N = 5
+weights = np.exp(np.linspace(-1, 0, N))
+weights /= np.sum(weights)
+print(weights)
+ema = np.convolve(weights, close)[N-1:-N+1]
+t = np.arange(N-1, len(close))
+plt.plot(t, close[N-1:], 'r-')
+plt.plot(t, ema, 'g-')
+plt.plot(t, sma, 'b-')
+plt.show()
+
+# 布林带又是一种技术指标，用以刻画价格波动区间。
+# 布林带的基本形态是由三条轨道线组成的带状通道，上中下各一条
+# 中轨，简单移动平均线
+# 上轨，比简单移动平均线高两倍标准差距离，这里所说的标准差是指简单移动平均线的标准差
+# 下轨，比简单移动平均线低2倍的标准差距离
+deviation = []
+c = len(close)
+for i in range(0, c-N+1):
+    dev = close[i:i+N]
+    sma_std = np.std(dev)
+    deviation.append(sma_std)
+    print("i: sma_std:", (i,sma_std))
+print(deviation)
+upperBB = sma + 2*np.array(deviation)
+lowerBB = sma - 2*np.array(deviation)
+plt.plot(t, sma, 'r-')
+plt.plot(t, upperBB, 'g-')
+plt.plot(t, lowerBB, 'b-')
+plt.show()
+
+# Numpy中的linalg包是专门用于线性代数计算的，下面的计算基于一个假设，就是一个价格可以根据N个
+# 之前的价格利用现行模型计算得出，也就是说，这个股价等于之前的股价与各自的系数相乘，在做加和的结果。
+# 用线性代数的术语来讲，这就是一个最小二乘法的问题
+def linear_predict():
+    b = close[-N:]
+    b = b[::-1]
+#    print('b:', b)
+    A = np.zeros([N,N])
+    # 假设当前价格只跟前N个价格有关，则取前N个价格来填充矩阵A
+    for i in range(N):
+        A[i:] = close[-1-i-N:-1-i]
+#        print('A:', A)
+        # 系数向量，残差数组，A的秩，A的奇异值
+        (x, residuals, rank, s) = np.linalg.lstsq(A, b)
+ #       print(x, residuals, rank, s)
+        # 得到了系数x，我们就可以预测下一次股价了
+    print("N=", N, np.dot(x, b))
+for N in range(5, 15):
+    linear_predict()
+
+# 趋势线描绘的是价格变化的趋势，是根据股价走势图上很多枢轴点绘成的曲线
+# 枢轴点，假设等于最高价、最低价、收盘价的算术平均值
+# 阻力位，指股价上升时遇到阻力，在转跌前的最高价格
+# 支撑位，指在反弹前的最低价格
+high, low, close = np.loadtxt('../Code/ch3code/data.csv', delimiter=',', usecols=(4, 5, 6), converters={1: datestr2num}, unpack=True)
+pivots = (high+low+close)/3
+print('pivots:', pivots.shape)
+
+def fit_line(t, y):
+    A = np.vstack([t, np.ones_like(t)]).T
+    return np.linalg.lstsq(A, y)[0]
+
+t = np.arange(len(close))
+print('t=', t.shape)
+sa, sb = fit_line(t, pivots-(high-low))
+ra, rb = fit_line(t, pivots+(high-low))
+print('sa, sb', sa, sb)
+print('ra, rb', ra, rb)
+support = sa * t + sb
+resistence = ra * t + rb
+print('support', support)
+print('resistence', resistence)
+condition = (close < resistence) & (close > support)
+print(close < resistence)
+print(close > support)
+print(condition)
+print(len(np.where(condition)[0]))
+print(support[condition])
+print('ratio=', len(np.where(condition)[0])/len(close))
+
+#除了np.where()之外，还有一种来计算支撑位和阻力位之间数据的个数的方法
+a1 = close[close>support]
+a2 = close[close<resistence]
+print(a1.shape)
+print(a2.shape)
+print(np.intersect1d(a1, a2))
+print(len(np.intersect1d(a1, a2))/len(close))
+next_support = (t[-1]+1)*sa + sb
+next_resistence = (t[-1]+1)*ra + rb
+print('next_support', next_support)
+print('next_resistence', next_resistence)
+plt.plot(t, support, 'r-', label='support')
+plt.plot(t, resistence, 'g-', label='resistence')
+plt.plot(t, close, 'b-', label='close')
+plt.legend()
+plt.show()
+
+# 数组的裁剪与压缩
+# clip方法返回一个修正过的数组，将所有比给定最大值还打的元素设置为最大值，
+# 将所有比给定最小值还小的元素设置为最小值
+a = np.arange(6)
+print(a)
+print('clip:', np.clip(a, 2, 4))
+# compress()方法返回一个根据给定条件筛选后的数组
+print('compress:', a.compress(a>3))
+
+# 阶乘
+a = np.arange(1, 8)
+print('prod', np.prod(a))
+print('cumprod', np.cumprod(a))
