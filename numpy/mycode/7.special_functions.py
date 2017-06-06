@@ -69,3 +69,51 @@ print "new_a:", new_a
 a = np.arange(9)
 condition = (a%2==0)
 print "偶数元素:", np.extract(condition, a)
+
+# 窗函数(window function)是信号处理领域常用的数学函数,相关应用包括谱分析和滤波器设计等.
+# 这些窗函数除在给定区间之外取值均为0. NumPy中有很多窗函数,如bartlett、blackman 、hamming 、hanning和kaiser
+# 巴特利特窗(Bartlett window)是一种三角形平滑窗.调用NumPy中的bartlett函数,以计算巴特利特窗.
+window = np.bartlett(42)
+plt.plot(window)
+plt.show()
+
+# 布莱克曼窗(Blackman window)形式上为三项余弦值的加和. NumPy中的blackman函数返回布莱克曼窗。
+# 该函数唯一的参数为输出点的数量。如果数量为0或小于0,则返回一个空数组
+N = 30
+close = np.loadtxt("../Code/ch7code/AAPL.csv", delimiter=',', usecols=(6), unpack=True)
+print "close:", close
+window = np.blackman(N)
+smoothed = np.convolve(window/window.sum(), close, mode='same')
+plt.plot(smoothed[N:-N], label='smoothed')
+#plt.plot(close[N:-N], label='closes')
+
+# 调用 hamming 函数,以计算汉明窗
+window = np.hamming(42)
+plt.plot(window)
+plt.show()
+
+# 凯泽窗(Kaiser window)是以贝塞尔函数(Bessel function)定义的
+# 调用 kaiser 函数,以计算凯泽窗
+window = np.kaiser(42, 14)
+plt.plot(window)
+plt.show()
+
+# 贝塞尔函数( Bessel function )是贝塞尔微分方程的标准解函数.在NumPy中,以i0表示第一类修正的零阶贝塞尔函数.
+# 使用 NumPy 的 linspace 函数生成一组均匀分布的数值
+# 调用 i0 函数进行计算
+# 使用 Matplotlib 绘制修正的贝塞尔函数
+x = np.linspace(0, 4, 100)
+vals = np.i0(x)
+plt.plot(x, vals)
+plt.show()
+
+# sinc函数在数学和信号处理领域被广泛应用。NumPy中有同名函数sinc,并且也存在一个二维版本
+x = np.linspace(0, 4, 100)
+vals = np.sinc(x)
+plt.plot(x, vals)
+plt.show()
+
+xx = np.outer(x, x)
+vals = np.sinc(xx)
+plt.plot(vals)
+plt.imshow(vals)
